@@ -21,7 +21,7 @@ with open(os.environ.get("RUN_CONFIG"), 'r') as ymlfile:
 runs = yaml_cfg["runs"]
 
 max_doc_char_length = 100_000
-
+ 
 def load_qrels(path):
     with open(path,'r') as f:
         qids_to_relevant_passageids = {}
@@ -78,16 +78,16 @@ for run in runs:
         with open(run["collection"],"r",encoding="utf8") as collection_file:
             for line in tqdm(collection_file):
                 ls = line.split("\t") # id<\t>text ....
-                _id = ls[0]
-                _collection[_id] = ls[1].rstrip()[:max_doc_char_length]
+                _id = ls[1]
+                _collection[_id] = ls[3].rstrip()[:max_doc_char_length]
         collection_cache[run["collection"]]= _collection
         collection.append(_collection)
 
-    secondary = numpy.load(run["secondary-output"])
+    secondary = numpy.load(run["secondary-output"], allow_pickle = True)
     secondary_model.append(secondary.get("model_data")[()])
     secondary_qd.append(secondary.get("qd_data")[()])
 
-    if run["run-info"]["score_type"]=="tk":
+    if run["run-info"]["score_type"]=="tk" or run["run-info"]["score_type"]=="fk":
         run["run-info"]["model_weights_log_len_mix"] = secondary.get("model_data")[()]["dense_comb_weight"][0].tolist()
 
 import gc
@@ -165,7 +165,7 @@ def get_document_info(score_type,qid,did,secondary_info,run):
 
     document_info = {"id":float(did),"score":float(secondary_info["score"]),"judged_relevant": did in qrels[run][qid]}
 
-    if score_type == "tk":
+    if score_type == "tk" or score_type == "fk":
         document_info["val_log"] = analyze_weighted_param_1D("log-kernels",secondary_info["per_kernel"],secondary_model[run]["dense_weight"][0],last_x=runs[run]["run-info"]["rest-kernels-last"])
         document_info["val_len"] = analyze_weighted_param_1D("len-norm-kernels",secondary_info["per_kernel_mean"],secondary_model[run]["dense_mean_weight"][0],last_x=runs[run]["run-info"]["rest-kernels-last"])
     if score_type == "knrm":

@@ -83,7 +83,7 @@ export default Vue.extend({
   }
 
  .run {
-    font-weight: normal;
+    font-weight: solid;
     padding: 4px;
     padding-left: 0px;
     //border-left: 1px solid gray;

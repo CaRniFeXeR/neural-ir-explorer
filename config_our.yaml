@@ -1,0 +1,14 @@
+runs:
+  - "run-info":
+        "id": 0
+        "test_collection": "MSMARCO-Passage (Dev)"
+        "model_info": "TK using 2 Transformer layers"
+        "score_type": "tk"
+        "kernels_mus": [1.0, 0.8, 0.6, 0.4, 0.2, 0.0, -0.2, -0.4, -0.6, -0.8, -1.0]
+        "kernels_mus_display": [1.0, 0.8, 0.6, 0.4, 0.2, 0.0, -0.2, -0.4, -0.6, -0.8, -1.0]
+        "rest-kernels-last": 4
+    "collection": "D:\\Git\\air-2021-group-30\\data\\msmarco_tuples.test.tsv"
+    "queries": "D:\\Git\\air-2021-group-30\\ir_explorer_data\\tk_msmarcodev_clustering_queries.csv"
+    "secondary-output": "D:\\Git\\air-2021-group-30\\logs\\tk_logger\\log_11_06_2021 22_05.npz"
+    "cluster-stats": "D:\\Git\\air-2021-group-30\\ir_explorer_data\\tk_msmarcodev_clustering_statistics.csv"
+    "qrels": "D:\\Git\\air-2021-group-30\\data\\msmarco_qrels.txt"
