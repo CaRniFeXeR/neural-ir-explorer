@@ -48,7 +48,7 @@ secondary_qd = []
 collection_cache = {}
 queries_cache = {}
 
-for run in runs:
+for run_id, run in enumerate(runs):
 
     qrels.append(load_qrels(run["qrels"]))
 
@@ -88,11 +88,21 @@ for run in runs:
     secondary_qd.append(secondary.get("qd_data")[()])
 
     #filter clusters according to the queries that are in the secondary output
-    qids_in_secondary_data = secondary_qd[0].keys()
-    for cluster_id in clusters[0].keys():
-        for query in clusters[0][cluster_id]["queries"]:
-            if not query["qid"] in qids_in_secondary_data:
-                clusters[0][cluster_id]["queries"].remove(query)
+    qids_in_secondary_data = secondary_qd[run_id].keys()
+    for cluster_id in clusters[run_id].keys():
+        new_query_list = []
+        for qidx, query in enumerate(clusters[run_id][cluster_id]["queries"]):
+            if query["qid"] in qids_in_secondary_data:
+               new_query_list.append(query)
+        clusters[run_id][cluster_id]["queries"] = new_query_list
+    
+    queries_to_remove = []
+    for qid in queries_with_stats[run_id].keys():
+        if not qid in qids_in_secondary_data:
+            queries_to_remove.append(qid)
+
+    for qid_remove in queries_to_remove:
+        queries_with_stats[run_id].pop(qid_remove)
 
 
     if run["run-info"]["score_type"]=="tk" or run["run-info"]["score_type"]=="fk":
