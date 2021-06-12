@@ -87,6 +87,14 @@ for run in runs:
     secondary_model.append(secondary.get("model_data")[()])
     secondary_qd.append(secondary.get("qd_data")[()])
 
+    #filter clusters according to the queries that are in the secondary output
+    qids_in_secondary_data = secondary_qd[0].keys()
+    for cluster_id in clusters[0].keys():
+        for query in clusters[0][cluster_id]["queries"]:
+            if not query["qid"] in qids_in_secondary_data:
+                clusters[0][cluster_id]["queries"].remove(query)
+
+
     if run["run-info"]["score_type"]=="tk" or run["run-info"]["score_type"]=="fk":
         run["run-info"]["model_weights_log_len_mix"] = secondary.get("model_data")[()]["dense_comb_weight"][0].tolist()
 
