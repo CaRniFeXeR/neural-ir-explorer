@@ -96,470 +96,526 @@ import Vue from "vue";
 import FetchHelper from "../fetch-helper";
 import UpDownScore from "./UpDownScore.vue";
 
-
 export default Vue.extend({
-    props: ['query',"runInfo"],
-    data() {
-        return {
-            headerHeight:0,
-            documentData:<any[]>[],
-            comparing_documentData:<any[]>[],
-            comparing_documentDataIds:<any[]>{},
-            comparing_diffData:{},
-            tokenized_query:<string[]>[],
-            highlight_mode:'qt',
-            qt_selected_indices:<any>{},
-            qt_min_sim:40,
-            qt_current_max:0,
-            kernel_selected_indices:<any>{},
-            showInfoBox:true,
-            showInfoBoxModel:false,
-            currentDisplayMode:"list",
-            color_palette:["rgb(44,8,69)", "rgb(91,131,19)", "rgb(37,36,249)", "rgb(182,96,30)", "rgb(132,56,186)", "rgb(31,68,7)", "rgb(222,31,138)", "rgb(29,134,109)", "rgb(223,51,64)", "rgb(19,51,70)", "rgb(122,10,24)", "rgb(22,125,187)", "rgb(176,94,112)", "rgb(69,111,231)", "rgb(90,49,0)", "rgb(208,3,214)", "rgb(114,121,110)"]//["#DB5461","#1A936F","#593C8F","#7A306C","#E16036","#171738",]
-        }
+  props: ["query", "runInfo"],
+  data() {
+    return {
+      headerHeight: 0,
+      documentData: <any[]>[],
+      comparing_documentData: <any[]>[],
+      comparing_documentDataIds: <any[]>{},
+      comparing_diffData: {},
+      tokenized_query: <string[]>[],
+      highlight_mode: "qt",
+      qt_selected_indices: <any>{},
+      qt_min_sim: 40,
+      qt_current_max: 0,
+      kernel_selected_indices: <any>{},
+      showInfoBox: true,
+      showInfoBoxModel: false,
+      currentDisplayMode: "list",
+      color_palette: [
+        "rgb(44,8,69)",
+        "rgb(91,131,19)",
+        "rgb(37,36,249)",
+        "rgb(182,96,30)",
+        "rgb(132,56,186)",
+        "rgb(31,68,7)",
+        "rgb(222,31,138)",
+        "rgb(29,134,109)",
+        "rgb(223,51,64)",
+        "rgb(19,51,70)",
+        "rgb(122,10,24)",
+        "rgb(22,125,187)",
+        "rgb(176,94,112)",
+        "rgb(69,111,231)",
+        "rgb(90,49,0)",
+        "rgb(208,3,214)",
+        "rgb(114,121,110)",
+      ], //["#DB5461","#1A936F","#593C8F","#7A306C","#E16036","#171738",]
+    };
+  },
+  methods: {
+    goBack() {
+      this.$emit("back");
     },
-    methods: {
-        goBack() { 
-            this.$emit("back"); 
-        },
-        goToList(){
-            this.comparing_documentData.length=0
-            this.comparing_documentDataIds={}
-                this.currentDisplayMode = "list"
-        },
-        addToCompare(didx:number){
-            this.comparing_documentDataIds[didx]=1
-            this.comparing_documentData.push(this.documentData[didx]);
-            if(this.comparing_documentData.length == 2){
-                this.currentDisplayMode = "side-by-side"
-                this.showInfoBox=false
-
-                this.comparing_diffData["score"] = this.comparing_documentData[0].score - this.comparing_documentData[1].score;
-            }
-            this.$forceUpdate()
-        },
-        toggle_highlight_mode(new_mode:string){
-            this.highlight_mode = new_mode
-        },
-        kernel_toggle_kernel(kernelIdx:number){
-            if(!(kernelIdx in this.kernel_selected_indices)){
-                this.kernel_selected_indices[kernelIdx] = 1
-            }else if(this.kernel_selected_indices[kernelIdx]==1){
-                delete this.kernel_selected_indices[kernelIdx]
-            }
-            this.$forceUpdate()
-        },
-        qt_toggle_term(tqi:number){
-            if(!(tqi in this.qt_selected_indices)){
-                this.qt_selected_indices[tqi] = 1
-            }else if(this.qt_selected_indices[tqi]==1){
-                this.qt_selected_indices[tqi] = 2
-            }
-            else if(this.qt_selected_indices[tqi]==2){
-                delete this.qt_selected_indices[tqi]
-            }
-            this.$forceUpdate()
-        },
-        controlTermStyle(termIndex:number){
-            if(!(termIndex in this.qt_selected_indices)){
-                return {"color":"gray"}
-            }
-            else if(this.qt_selected_indices[termIndex]==1){
-                return {"color":this.color_palette[termIndex]}
-            }
-            else if(this.qt_selected_indices[termIndex]==2){
-                return {"backgroundColor":this.color_palette[termIndex]}
-            }
-        },
-        termStyle(documentData:any,docIndex:number,termIndex:number){
-            var output=<any>{
-                color:"black",
-                opacity:1
-            }
-            var mainKey="color"
-            if(this.highlight_mode=="qt"){
-                if(Object.keys(this.qt_selected_indices).length == 0) return output;
-
-                var matches = documentData[docIndex].matches[termIndex]
-                var max_val = 0
-                var max_index;
-                for(var index in this.qt_selected_indices){
-                    var val = matches[index]
-                    if(val > max_val){
-                        max_val = val;
-                        max_index = index;
-                    }
-                }
-
-                if(max_val > this.qt_min_sim/100){
-                    if(this.qt_selected_indices[<number><unknown>max_index]==2){
-                        output.color="white"
-                        mainKey = "backgroundColor"
-                    }
-                    output[mainKey] = this.color_palette[<number><unknown>max_index]
-                }
-                output.opacity = max_val / this.qt_current_max
-                return output
-            }else if(this.highlight_mode=="kernel"){
-                if(Object.keys(this.kernel_selected_indices).length == 0) return output;
-
-                var matches = documentData[docIndex].matches_per_kernel[termIndex]
-                var max_val = 0
-                var max_index;
-                for(var q_index in this.qt_selected_indices){
-                    for(var k_index in this.kernel_selected_indices){
-                        var val = matches[q_index][k_index]
-                        if(val > max_val){
-                            max_val = val;
-                            max_index = q_index;
-                        }
-                    }
-                }
-
-                if(max_val > 0.02){
-                    if(this.qt_selected_indices[<number><unknown>max_index]==2){
-                        output.color="white"
-                        mainKey = "backgroundColor"
-                    }
-                    output[mainKey] = this.color_palette[<number><unknown>max_index]
-
-                    //output.color="white"
-                    //output["backgroundColor"] = this.color_palette[<number><unknown>max_index]
-                }
-                output.opacity = max_val /// this.qt_current_max
-                return output
-            }
-        }
+    goToList() {
+      this.comparing_documentData.length = 0;
+      this.comparing_documentDataIds = {};
+      this.currentDisplayMode = "list";
     },
-    watch: { 
-          query: function(newVal, oldVal) { // watch it
-            var stopword_selection = ["where","is","a","and","in","the","are","do","does",]
-            if(newVal!=""){
-                this.qt_selected_indices = {}
-                this.kernel_selected_indices = {2:1}
-                this.documentData.length = 0
-                this.comparing_documentData.length = 0
-                this.comparing_documentDataIds= {}
-                this.currentDisplayMode = "list"
-                fetch("/query/"+this.runInfo.id+"/"+newVal.qid)
-                    .then(FetchHelper.status)
-                    .then(FetchHelper.json)
-                    .then(data => {
-                      this.documentData.push(...data.documents);
-                      this.tokenized_query = data.documents[0].tokenized_query
-                      for(var d in data.documents){
-                          for(var i=0;i< data.documents[d].matches.length;i++){
-                              this.qt_current_max = Math.max(this.qt_current_max,...data.documents[d].matches[i])
-                      }}
-                      for(var i=0;i<this.tokenized_query.length;i++){
-                            this.qt_selected_indices[i] = stopword_selection.findIndex((x) => x == this.tokenized_query[i]) == -1 ? 2 : 1
-                      }
-                      requestAnimationFrame(()=>{
-                          this.headerHeight = this.$refs.header.clientHeight
-                          this.$forceUpdate();
-                      })
-                    })
-                    .catch(error => {
-                      console.log(error);
-                    });
-            }
-        }
-    },
-    computed: {
+    addToCompare(didx: number) {
+      
+      if (this.comparing_documentData.length == 0) {
+          this.comparing_documentDataIds[didx] = 1;
+          this.lastdix = didx
+          this.comparing_documentData.push(this.documentData[didx]);
+      } 
+      else if (this.comparing_documentData.length == 1) {
         
+        fetch("/query/" + 1 + "/" + this.qid)
+          .then(FetchHelper.status)
+          .then(FetchHelper.json)
+          .then((data) => {
+            let currentDocs = data.documents;
+         
+            this.comparing_documentData.push(currentDocs[this.lastdix]);
+
+
+            this.currentDisplayMode = "side-by-side";
+            this.showInfoBox = false;
+
+            this.comparing_diffData["score"] =
+              this.comparing_documentData[0].score -
+              this.comparing_documentData[1].score;
+            requestAnimationFrame(() => {
+              this.headerHeight = this.$refs.header.clientHeight;
+              this.$forceUpdate();
+            });
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      }
+      this.$forceUpdate();
     },
-    components:{UpDownScore}
+    toggle_highlight_mode(new_mode: string) {
+      this.highlight_mode = new_mode;
+    },
+    kernel_toggle_kernel(kernelIdx: number) {
+      if (!(kernelIdx in this.kernel_selected_indices)) {
+        this.kernel_selected_indices[kernelIdx] = 1;
+      } else if (this.kernel_selected_indices[kernelIdx] == 1) {
+        delete this.kernel_selected_indices[kernelIdx];
+      }
+      this.$forceUpdate();
+    },
+    qt_toggle_term(tqi: number) {
+      if (!(tqi in this.qt_selected_indices)) {
+        this.qt_selected_indices[tqi] = 1;
+      } else if (this.qt_selected_indices[tqi] == 1) {
+        this.qt_selected_indices[tqi] = 2;
+      } else if (this.qt_selected_indices[tqi] == 2) {
+        delete this.qt_selected_indices[tqi];
+      }
+      this.$forceUpdate();
+    },
+    controlTermStyle(termIndex: number) {
+      if (!(termIndex in this.qt_selected_indices)) {
+        return { color: "gray" };
+      } else if (this.qt_selected_indices[termIndex] == 1) {
+        return { color: this.color_palette[termIndex] };
+      } else if (this.qt_selected_indices[termIndex] == 2) {
+        return { backgroundColor: this.color_palette[termIndex] };
+      }
+    },
+    termStyle(documentData: any, docIndex: number, termIndex: number) {
+      var output = <any>{
+        color: "black",
+        opacity: 1,
+      };
+      var mainKey = "color";
+      if (this.highlight_mode == "qt") {
+        if (Object.keys(this.qt_selected_indices).length == 0) return output;
+
+        var matches = documentData[docIndex].matches[termIndex];
+        var max_val = 0;
+        var max_index;
+        for (var index in this.qt_selected_indices) {
+          var val = matches[index];
+          if (val > max_val) {
+            max_val = val;
+            max_index = index;
+          }
+        }
+
+        if (max_val > this.qt_min_sim / 100) {
+          if (this.qt_selected_indices[<number>(<unknown>max_index)] == 2) {
+            output.color = "white";
+            mainKey = "backgroundColor";
+          }
+          output[mainKey] = this.color_palette[<number>(<unknown>max_index)];
+        }
+        output.opacity = max_val / this.qt_current_max;
+        return output;
+      } else if (this.highlight_mode == "kernel") {
+        if (Object.keys(this.kernel_selected_indices).length == 0)
+          return output;
+
+        var matches = documentData[docIndex].matches_per_kernel[termIndex];
+        var max_val = 0;
+        var max_index;
+        for (var q_index in this.qt_selected_indices) {
+          for (var k_index in this.kernel_selected_indices) {
+            var val = matches[q_index][k_index];
+            if (val > max_val) {
+              max_val = val;
+              max_index = q_index;
+            }
+          }
+        }
+
+        if (max_val > 0.02) {
+          if (this.qt_selected_indices[<number>(<unknown>max_index)] == 2) {
+            output.color = "white";
+            mainKey = "backgroundColor";
+          }
+          output[mainKey] = this.color_palette[<number>(<unknown>max_index)];
+
+          //output.color="white"
+          //output["backgroundColor"] = this.color_palette[<number><unknown>max_index]
+        }
+        output.opacity = max_val; /// this.qt_current_max
+        return output;
+      }
+    },
+  },
+  watch: {
+    query: function (newVal, oldVal) {
+      // watch it
+      var stopword_selection = [
+        "where",
+        "is",
+        "a",
+        "and",
+        "in",
+        "the",
+        "are",
+        "do",
+        "does",
+      ];
+      if (newVal != "") {
+        this.qt_selected_indices = {};
+        this.kernel_selected_indices = { 2: 1 };
+        this.documentData.length = 0;
+        this.comparing_documentData.length = 0;
+        this.comparing_documentDataIds = {};
+        this.currentDisplayMode = "list";
+        this.qid = newVal.qid
+        fetch("/query/" + this.runInfo.id + "/" + newVal.qid)
+          .then(FetchHelper.status)
+          .then(FetchHelper.json)
+          .then((data) => {
+            this.documentData.push(...data.documents);
+            this.tokenized_query = data.documents[0].tokenized_query;
+            for (var d in data.documents) {
+              for (var i = 0; i < data.documents[d].matches.length; i++) {
+                this.qt_current_max = Math.max(
+                  this.qt_current_max,
+                  ...data.documents[d].matches[i]
+                );
+              }
+            }
+            for (var i = 0; i < this.tokenized_query.length; i++) {
+              this.qt_selected_indices[i] =
+                stopword_selection.findIndex(
+                  (x) => x == this.tokenized_query[i]
+                ) == -1
+                  ? 2
+                  : 1;
+            }
+            requestAnimationFrame(() => {
+              this.headerHeight = this.$refs.header.clientHeight;
+              this.$forceUpdate();
+            });
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      }
+    },
+  },
+  computed: {},
+  components: { UpDownScore },
 });
 </script>
 
 <style lang="scss">
 .single-query-view {
-    margin: auto;
+  margin: auto;
+  width: 600px;
+  padding-top: 120px;
+  margin-top: 50px;
+  .section-header {
+    position: fixed;
+    background: white;
+    top: 47px;
+    z-index: 100;
     width: 600px;
-    padding-top: 120px;
-    margin-top: 50px;
-    .section-header{
-        position: fixed;
-        background: white;
-        top: 47px;
-        z-index: 100;
-        width: 600px;
-        .query{
-            display: inline;
-            font-weight: 500;
-            margin:20px;
-        }
-        .cluster-card{
-            position: absolute;
-            right: 100%;
-            margin-top: 0;
-            margin-right: 20px;
-            display: inline-block;
-            border: 1px solid #d5d5d5;
-            border-radius: 2px;
-            box-shadow: 2px 2px 8px #e6e6e6;
-            padding: 10px;
-            width: 400px;
-        }
-        .back-button{
-            width: 13px;
-            height: 18px;
-            display: inline-block;
-            text-align: center;
-            vertical-align: middle;
-            padding: 7px;
-            border-right: 1px solid #c7c7c7;
-            margin: -10px;
-            margin-right: 10px;
-            cursor: pointer;
-
-            &:hover{
-                color:blueviolet
-            }
-        }
+    .query {
+      display: inline;
+      font-weight: 500;
+      margin: 20px;
     }
-    .controls{
-        .range-holder {
-            position: relative;
-            display: inline-block;
-            input{
-                width:100px;
-                top: -3px;
-            }
-            .label {
-                position: absolute;
-                width: 20px;
-                height: 20px;
-                color: gray;
-                top: 20px;
-                margin-left: -9px;
-                display: block;
-            }
-        }
-        .line{
-            padding: 10px 0;
-            &.center{
-                padding-left: 40px;
-            }
-            &.heading{
-                padding-top: 20px;
-                color: gray;
-            }
-            .part-line{
-                display: inline-block;
-                position: relative;
-                &:not(.selected){
-                    .range-holder .label{
-                        display: none;
-                    }
-                    .range-holder .slider::-webkit-slider-thumb{
-                        background-color: gray!important;
-                    }
-                    .range-holder .slider::-moz-range-thumb{
-                        background: gray!important;
-                        }
-                    .range-holder .slider::-ms-thumb{
-                        background: gray!important;
-                        }
-                    .shadow{
-                        display: block;
-                        position: absolute;
-                        top:0;
-                        left:0;
-                        right: 0;
-                        bottom: 0;
-                        z-index: 50;
-                        opacity: 0.7;
-                        background: white;
-                        cursor: pointer;
-                        &:hover{
-                            opacity: 0.5;
-                        }
-                    }
-                }
-                &.selected .shadow{
-                    display: none;
-                }
-            }
-
-            .rank{
-                margin-left:40px;
-                margin-right: 10px;
-            }
-            .main-score{
-                margin-right: 25px;
-            }
-            .kernels{
-
-            }
-            
-        }
-        .label{
-            cursor: default;
-            display: inline;
-        }
-        .kernels{
-            display: inline-block;
-        }
-        .kernels span{
-            cursor: pointer;
-            padding:4px;
-            margin:1px;
-
-            &.selected {
-                background:lightgray;
-                border-bottom: 2px solid blueviolet;
-            }
-        }
-        .terms{
-            display: inline-block;
-            line-height: 32px;
-        }
-        .terms span{
-            cursor: pointer;
-            padding:5px;
-            margin:10px;
-            border-radius: 3px;
-
-            &.selected2 {
-                color:white;
-            }
-            &:not(.selected2){ 
-                background: none !important;
-            }
-        }
+    .cluster-card {
+      position: absolute;
+      right: 100%;
+      margin-top: 0;
+      margin-right: 20px;
+      display: inline-block;
+      border: 1px solid #d5d5d5;
+      border-radius: 2px;
+      box-shadow: 2px 2px 8px #e6e6e6;
+      padding: 10px;
+      width: 400px;
     }
-    .document{
-        margin: 5px;
+    .back-button {
+      width: 13px;
+      height: 18px;
+      display: inline-block;
+      text-align: center;
+      vertical-align: middle;
+      padding: 7px;
+      border-right: 1px solid #c7c7c7;
+      margin: -10px;
+      margin-right: 10px;
+      cursor: pointer;
+
+      &:hover {
+        color: blueviolet;
+      }
+    }
+  }
+  .controls {
+    .range-holder {
+      position: relative;
+      display: inline-block;
+      input {
+        width: 100px;
+        top: -3px;
+      }
+      .label {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        color: gray;
+        top: 20px;
+        margin-left: -9px;
+        display: block;
+      }
+    }
+    .line {
+      padding: 10px 0;
+      &.center {
+        padding-left: 40px;
+      }
+      &.heading {
+        padding-top: 20px;
+        color: gray;
+      }
+      .part-line {
+        display: inline-block;
         position: relative;
-        .head{
-            margin: 10px 40px;
-            hr{
-                border: 0.5px solid #dedede;
-                margin: 10px 0;
-            }
-            .rank {
-                border: 1px solid gray;
-                border-radius: 50%;
-                width: 18px;
-                position: relative;
-                display: inline-block;
-                text-align: center;
-                font-weight:500;
-                    margin-right: 10px;
-            }
-            .main-score{
-                width: 145px;
-                display: inline-block;
-                &.single{
-                    width: 57px;
-                }
-            }
-            .kernel-value{
-                margin:0 3px;
-                display: inline-block;
-            }
-            .kernel-value.selected{
-                font-weight: 500;
-                text-decoration: underline;
-            }
-            .star{
-                display: inline-block;
-                position: absolute;
-                margin-left: -30px;
-                cursor: default;
-            }
-        }
-        .text{
-            text-align:justify; 
-            span{
-                padding:0 2px;
-                margin:0 1px;
-                border-radius:2px
-            }
-        }
-        .compare-button{
-            opacity: 0.3;
+        &:not(.selected) {
+          .range-holder .label {
+            display: none;
+          }
+          .range-holder .slider::-webkit-slider-thumb {
+            background-color: gray !important;
+          }
+          .range-holder .slider::-moz-range-thumb {
+            background: gray !important;
+          }
+          .range-holder .slider::-ms-thumb {
+            background: gray !important;
+          }
+          .shadow {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            opacity: 0.7;
+            background: white;
             cursor: pointer;
-            padding: 5px;
-            margin-left: 20px;
-            &.selected{
-                opacity:1;
-                background: blueviolet;
-                border-radius: 2px;
-                color:white;
+            &:hover {
+              opacity: 0.5;
             }
+          }
         }
-        &:hover{
-            .compare-button{
-                opacity:1;
-            }
+        &.selected .shadow {
+          display: none;
         }
+      }
+
+      .rank {
+        margin-left: 40px;
+        margin-right: 10px;
+      }
+      .main-score {
+        margin-right: 25px;
+      }
+      .kernels {
+      }
     }
-    .side-by-side{
-        width: 1200px;
-        margin-left: -300px;
+    .label {
+      cursor: default;
+      display: inline;
+    }
+    .kernels {
+      display: inline-block;
+    }
+    .kernels span {
+      cursor: pointer;
+      padding: 4px;
+      margin: 1px;
+
+      &.selected {
+        background: lightgray;
+        border-bottom: 2px solid blueviolet;
+      }
+    }
+    .terms {
+      display: inline-block;
+      line-height: 32px;
+    }
+    .terms span {
+      cursor: pointer;
+      padding: 5px;
+      margin: 10px;
+      border-radius: 3px;
+
+      &.selected2 {
+        color: white;
+      }
+      &:not(.selected2) {
+        background: none !important;
+      }
+    }
+  }
+  .document {
+    margin: 5px;
+    position: relative;
+    .head {
+      margin: 10px 40px;
+      hr {
+        border: 0.5px solid #dedede;
+        margin: 10px 0;
+      }
+      .rank {
+        border: 1px solid gray;
+        border-radius: 50%;
+        width: 18px;
+        position: relative;
+        display: inline-block;
         text-align: center;
-        a{
-            display: inline-block;
-            text-align: center;
-            margin: 20px;
-            cursor: pointer;
+        font-weight: 500;
+        margin-right: 10px;
+      }
+      .main-score {
+        width: 145px;
+        display: inline-block;
+        &.single {
+          width: 57px;
         }
-        .document{
-            display: inline-block;
-            width: 620px;
-            vertical-align: top;
-            .head{
-                margin:0;
-            }
-            .legend{
-                width: 60px;
-                float: left;
-                span{
-                    display: block;
-                }
-            }
-            .values{
-                display: inline-block;
-                width: 50px;
-                text-align: right;
-                span{
-                    display: block;
-                }
-            }
-            .diffs{
-                float: right;
-                width:50px;
-                span{
-                    margin: 0;
-                    display: block;
-                }
-            }
-            &.left{
-                .text{
-                    margin-right: 220px;
-                }
-                .head{
-                    float: right;
-                    width: 180px;
-                    margin-right:0;
-                    text-align: left;
-                }
-            }
-            &.right{
-                width: 500px;
-                .text{
-                    margin-left: 72px;
-                }
-                .head{
-                    float: left;
-                    width: 60px;
-                    text-align: left;
-                    margin-left: 0;
-                }
-            }
-        }
+      }
+      .kernel-value {
+        margin: 0 3px;
+        display: inline-block;
+      }
+      .kernel-value.selected {
+        font-weight: 500;
+        text-decoration: underline;
+      }
+      .star {
+        display: inline-block;
+        position: absolute;
+        margin-left: -30px;
+        cursor: default;
+      }
     }
+    .text {
+      text-align: justify;
+      span {
+        padding: 0 2px;
+        margin: 0 1px;
+        border-radius: 2px;
+      }
+    }
+    .compare-button {
+      opacity: 0.3;
+      cursor: pointer;
+      padding: 5px;
+      margin-left: 20px;
+      &.selected {
+        opacity: 1;
+        background: blueviolet;
+        border-radius: 2px;
+        color: white;
+      }
+    }
+    &:hover {
+      .compare-button {
+        opacity: 1;
+      }
+    }
+  }
+  .side-by-side {
+    width: 1200px;
+    margin-left: -300px;
+    text-align: center;
+    a {
+      display: inline-block;
+      text-align: center;
+      margin: 20px;
+      cursor: pointer;
+    }
+    .document {
+      display: inline-block;
+      width: 620px;
+      vertical-align: top;
+      .head {
+        margin: 0;
+      }
+      .legend {
+        width: 60px;
+        float: left;
+        span {
+          display: block;
+        }
+      }
+      .values {
+        display: inline-block;
+        width: 50px;
+        text-align: right;
+        span {
+          display: block;
+        }
+      }
+      .diffs {
+        float: right;
+        width: 50px;
+        span {
+          margin: 0;
+          display: block;
+        }
+      }
+      &.left {
+        .text {
+          margin-right: 220px;
+        }
+        .head {
+          float: right;
+          width: 180px;
+          margin-right: 0;
+          text-align: left;
+        }
+      }
+      &.right {
+        width: 500px;
+        .text {
+          margin-left: 72px;
+        }
+        .head {
+          float: left;
+          width: 60px;
+          text-align: left;
+          margin-left: 0;
+        }
+      }
+    }
+  }
 }
 </style>
